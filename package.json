@@ -1,0 +1,14 @@
+{
+  "name": "echonet-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "echonet.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "echonet-lite": "0.0.22"
+  }
+}
