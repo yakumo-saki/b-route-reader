@@ -4,6 +4,48 @@
 // import functions as EL object
 var EL = require('echonet-lite');
 var EPC = require('./const-epc');
+const log4js = require('log4js');
+
+log4js.configure(
+	{
+		appenders: {
+			app: {
+				type: "file",
+				filename: "log/app.log",
+				maxLogSize: 10485760,
+				numBackups: 3,
+				layout: {
+					type: "pattern",
+					pattern: "%d{ISO8601_WITH_TZ_OFFSET} %h %p %c %m"
+				}
+			},
+			power: {
+				type: "file",
+				filename: "log/powerdata.log",
+				layout: {
+					type: "pattern",
+					pattern: "%m"
+				}
+			},
+			stdout: {
+				type: "stdout",
+				layout: { type: 'basic' }
+			}
+		},
+		categories: {
+			default: { appenders: [ "app", "stdout" ], level: "DEBUG" },
+			power: { appenders: [ "power" , "stdout"], level: "DEBUG" }
+		}
+	}
+);
+
+global.logger = log4js.getLogger('default');
+const logger = global.logger;
+
+global.power_logger = log4js.getLogger('power');
+const power_logger = global.power_logger;
+
+global.result = {};
 
 // 自分自身のオブジェクトを決める
 // set EOJ for this script
@@ -12,34 +54,34 @@ var EPC = require('./const-epc');
 var objList = ['05ff01'];
 
 global.waifForAnswer = false;
-global.get_properties = [EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU];
+global.get_properties = [EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU, EPC.DELTA_HISTORY];
 // global.get_properties = [EPC.DELTA_DENRYOKU];
 
 function test(rinfo, els) {
     if( err ){
         console.dir(err);
     }else{
-        // console.log('==============================');
-        console.log('Get ECHONET Lite data');
-        // console.log('rinfo is ');
+        // logger.debug('==============================');
+        logger.debug('Get ECHONET Lite data');
+        // logger.debug('rinfo is ');
         console.dir(rinfo);
 
         // elsはELDATA構造になっているので使いやすいかも
         // els is ELDATA stracture.
-        console.log('----');
-        console.log('els is ');
-        console.dir(els);
+        logger.debug('----');
+        logger.debug('els is ');
+        logger.debug(els);
 
         // ELDATAをArrayにする事で使いやすい人もいるかも
         // convert ELDATA into byte array.
-        // console.log('----');
-        // console.log( 'ECHONET Lite data array is ' );
-        // console.log( EL.ELDATA2Array( els ) );
+        // logger.debug('----');
+        // logger.debug( 'ECHONET Lite data array is ' );
+        // logger.debug( EL.ELDATA2Array( els ) );
 
         // 受信データをもとに，実は内部的にfacilitiesの中で管理している
         // this module manages facilities by receved packets.
-        // console.log('----');
-        // console.log( 'Found facilities are ' );
+        // logger.debug('----');
+        // logger.debug( 'Found facilities are ' );
         // console.dir( EL.facilities );
     }
 }
@@ -49,19 +91,32 @@ function test(rinfo, els) {
 // initialize and setting callback. the callback is called by reseived packet.
 var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
 
+	var logger = global.logger;
+
 	if (!global.waifForAnswer) {
 		return;
 	}
 
 	// GET(0x62) の応答 (0x72)
 	if (els.DEOJ === '05ff01' && els.ESV === EL.GET_RES) {
-		// console.log(els.ESV);
-		console.log("=---------=");
-		console.dir(rinfo);
-		console.dir(els.DETAILs);
-		console.log("e0=" + els.DETAILs["e0"]);
-		console.log("e7=" + els.DETAILs["e7"]);
-		console.log("e8=" + els.DETAILs["e8"]);
+		// logger.debug(els.ESV);
+		logger.debug("=---------=");
+		logger.debug(rinfo);
+		logger.debug("=---------=");
+		logger.debug(els);
+		logger.debug("=---------=");
+		logger.debug(els.DETAILs);
+		logger.debug("e0=" + els.DETAILs["e0"] + " " + parseInt(els.DETAILs["e0"], 16));
+		logger.debug("e7=" + els.DETAILs["e7"] + " " + parseInt(els.DETAILs["e7"], 16));
+		logger.debug("e8=" + els.DETAILs["e8"] + " " + parseInt(els.DETAILs["e8"], 16));
+
+		for (var i = 0; i < global.get_properties.length; i++) {
+			var prop = global.get_properties[i].toLowerCase();
+			logger.debug(prop + " " + els.DETAILs[prop]);
+			if (els.DETAILs[prop] != undefined) {
+				global.result[prop] = els.DETAILs[prop];
+			}
+		}
 	}
 });
 
@@ -75,15 +130,17 @@ if (!global.waifForAnswer) {
 	global.waifForAnswer = true;
 
 	// 問い合わせを送信。ただし、連続で送ると相手の負荷が怖いので1秒ずつ間を開ける
+	global.result["datetime"] = new Date().toISOString();
 	for (var i = 0; i < get_properties.length; i++) {
 		setTimeout(function(prop) {
-			console.log("send req " + prop);
+			logger.debug("send req " + prop);
 			EL.sendOPC1('10.1.0.100', '05ff01', '028801', EL.GET, prop, "");
 		},(i * 1000), global.get_properties[i]);
 	}
 }
 
 setTimeout(function(sock) {
-	console.log("Exiting.");
+	global.power_logger.info(JSON.stringify(global.result));
+	logger.debug("Exiting.");
 	sock.close();
-} , 10000, elsocket);
+} , 15000, elsocket);

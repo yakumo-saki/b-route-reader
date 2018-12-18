@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "echonet-lite": "0.0.22"
+    "echonet-lite": "0.0.22",
+    "log4js": "^3.0.6"
   }
 }
