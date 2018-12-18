@@ -178,13 +178,12 @@ function parse_e7(value) {
 
 /// e8 瞬時電流計測値（正方向）
 function parse_e8(value) {
-  var r = hex_to_decimal(value.substr(0, 4) );
-  var t = hex_to_decimal(value.substr(4, 4) );
-  var total = r + t;
+  var r = hex_to_decimal(value.substr(0, 4));
+  var t = hex_to_decimal(value.substr(4, 4));
+  var div = 10;  // 0.1 A単位
 
-  return {now_R_amp: r, now_T_amp: t, now_total_amp: total}
+  return {now_R_amp: (r / div), now_T_amp: (t / div), now_total_amp: ((r + t) / div) }
 }
-
 
 function hex_to_decimal(value) {
   return parseInt(value, 16);
