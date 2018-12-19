@@ -1,0 +1,30 @@
+{
+  "appenders": {
+    "app": {
+      "type": "file",
+      "filename": "log/app.log",
+      "maxLogSize": 10485760,
+      "numBackups": 3,
+      "layout": {
+        "type": "pattern",
+        "pattern": "%d{ISO8601_WITH_TZ_OFFSET} %h %p %c %m"
+      }
+    },
+    "power": {
+      "type": "file",
+      "filename": "log/powerdata.log",
+      "layout": {
+        "type": "pattern",
+        "pattern": "%m"
+      }
+    },
+    "stdout": {
+      "type": "stdout",
+      "layout": { "type": "basic" }
+    }
+  },
+  "categories": {
+    "default": { "appenders": [ "app", "stdout" ], "level": "DEBUG" },
+    "power": { "appenders": [ "power" , "stdout"], "level": "DEBUG" }
+  }
+}

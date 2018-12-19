@@ -6,38 +6,12 @@ var EL = require('echonet-lite');
 var EPC = require('./const-epc');
 const log4js = require('log4js');
 
-log4js.configure(
-	{
-		appenders: {
-			app: {
-				type: "file",
-				filename: "log/app.log",
-				maxLogSize: 10485760,
-				numBackups: 3,
-				layout: {
-					type: "pattern",
-					pattern: "%d{ISO8601_WITH_TZ_OFFSET} %h %p %c %m"
-				}
-			},
-			power: {
-				type: "file",
-				filename: "/var/log/environment/powerdata.log",
-				layout: {
-					type: "pattern",
-					pattern: "%m"
-				}
-			},
-			stdout: {
-				type: "stdout",
-				layout: { type: 'basic' }
-			}
-		},
-		categories: {
-			default: { appenders: [ "app", "stdout" ], level: "DEBUG" },
-			power: { appenders: [ "power" , "stdout"], level: "DEBUG" }
-		}
-	}
-);
+var fs = require('fs');
+fs.readFile('./config/log4js.json', 'utf8', function (err, text) {
+  var config = JSON.parse(text);
+  console.dir(config);
+  log4js.configure(config);
+});
 
 global.logger = log4js.getLogger('default');
 const logger = global.logger;
@@ -131,12 +105,24 @@ for (var i = 0; i < get_properties.length; i++) {
 
 
 // 終了判定（適当過ぎるので後で直す）
-setTimeout(function(sock) {
-	// 値の解釈
+global.done_watch = setInterval(function(sock) {
 
-	// e2（積算履歴）は別途解釈が必要
-  var e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
+  var done = true;
+
+  // 全ての値が揃ったかチェック
+  get_properties.forEach(prop => {
+    if (global.result[prop] == undefined) {
+      done = false;
+    }
+  });
+
+  if (!done) {
+    return;
+  }
+
+	// 値の解釈
   var e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU]);
+  var e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
   var e7 = parse_e7(global.result[EPC.NOW_DENRYOKU]);
   var e8 = parse_e8(global.result[EPC.NOW_DENRYUU]);
 
@@ -144,9 +130,14 @@ setTimeout(function(sock) {
 
 	global.power_logger.info(JSON.stringify(global.result));
 	logger.debug("Exiting.");
-	sock.close();
-} , 15000, elsocket);
+  sock.close();
+  clearInterval(global.done_watch);
+} , 1000, elsocket);
 
+/**
+ * 積算電力量 kWh
+ * @param {*} e2_value
+ */
 function parse_e2(e2_value) {
 
 	const e2_keys = ["0000","0030","0100","0130","0200","0230","0300","0330","0400","0430"
@@ -166,17 +157,23 @@ function parse_e2(e2_value) {
   }
 }
 
-/// e0 積算電力量計測値（正方向）
+/**
+ * e0 積算電力量計測値（正方向）
+ */
 function parse_e0(value) {
   return {delta_kwh: hex_to_decimal(value)}
 }
 
-/// e7 瞬時電力量計測値（正方向）
+/**
+ * e7 瞬時電力量計測値（正方向）
+ */
 function parse_e7(value) {
   return {now_w: hex_to_decimal(value)}
 }
 
-/// e8 瞬時電流計測値（正方向）
+/**
+ * e8 瞬時電流計測値（正方向）
+ */
 function parse_e8(value) {
   var r = hex_to_decimal(value.substr(0, 4));
   var t = hex_to_decimal(value.substr(4, 4));
