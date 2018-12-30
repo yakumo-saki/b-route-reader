@@ -1,0 +1,12 @@
+[Unit]
+Description = B route service timer
+Wants = multi-user.target
+After = multi-user.target
+
+[Timer]
+OnCalendar = *-*-* *:*:2/10
+Persistent=true
+Unit = broute.service
+
+[Install]
+WantedBy = timers.target
