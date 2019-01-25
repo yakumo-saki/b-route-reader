@@ -1,15 +1,19 @@
 'use strict'
 
+const TARGET_IP='10.1.0.100'
+
 // モジュールの機能をELとして使う
 // import functions as EL object
 var EL = require('echonet-lite');
 var EPC = require('./const-epc');
 const log4js = require('log4js');
 
+const SELF_DEV=EPC.DEV_CONTROLLER  // 自分（プログラム）自身のデバイス
+
 var fs = require('fs');
 fs.readFile('./config/log4js.json', 'utf8', function (err, text) {
   var config = JSON.parse(text);
-  console.dir(config);
+  // console.dir(config);
   log4js.configure(config);
 });
 
@@ -17,7 +21,6 @@ global.logger = log4js.getLogger('default');
 const logger = global.logger;
 
 global.power_logger = log4js.getLogger('power');
-const power_logger = global.power_logger;
 
 global.result = {};
 
@@ -25,40 +28,10 @@ global.result = {};
 // set EOJ for this script
 // initializeで設定される，必ず何か設定しないといけない，今回はコントローラ
 // this EOJ list is required. '05ff01' is a controller.
-var objList = ['05ff01'];
+var objList = [EPC.DEV_CONTROLLER];
 
 global.waifForAnswer = false;
 global.get_properties = [EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU, EPC.DELTA_HISTORY];
-// global.get_properties = [EPC.DELTA_DENRYOKU];
-
-function test(rinfo, els) {
-    if( err ){
-        console.dir(err);
-    }else{
-        // logger.debug('==============================');
-        logger.debug('Get ECHONET Lite data');
-        // logger.debug('rinfo is ');
-        console.dir(rinfo);
-
-        // elsはELDATA構造になっているので使いやすいかも
-        // els is ELDATA stracture.
-        logger.debug('----');
-        logger.debug('els is ');
-        logger.debug(els);
-
-        // ELDATAをArrayにする事で使いやすい人もいるかも
-        // convert ELDATA into byte array.
-        // logger.debug('----');
-        // logger.debug( 'ECHONET Lite data array is ' );
-        // logger.debug( EL.ELDATA2Array( els ) );
-
-        // 受信データをもとに，実は内部的にfacilitiesの中で管理している
-        // this module manages facilities by receved packets.
-        // logger.debug('----');
-        // logger.debug( 'Found facilities are ' );
-        // console.dir( EL.facilities );
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////
 // 初期化するとともに，受信動作をコールバックで登録する
@@ -68,13 +41,12 @@ var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
 	var logger = global.logger;
 
 	// GET(0x62) の応答 (0x72)
-	if (els.DEOJ === '05ff01' && els.ESV === EL.GET_RES) {
-		// logger.debug(els.ESV);
-		// logger.debug("=---------=");
-		// logger.debug(rinfo);
-		// logger.debug("=---------=");
-		// logger.debug(els);
-		// logger.debug("=---------=");
+	if (els.DEOJ === SELF_DEV && els.ESV === EL.GET_RES) {
+		logger.debug("===========");
+		logger.debug("els.ESV=" + els.ESV);
+		logger.debug("rinfo=" + JSON.stringify(rinfo) );
+		logger.debug(els);
+		logger.debug("===========");
 		// logger.debug(els.DETAILs);
 		// logger.debug("e0=" + els.DETAILs["e0"] + " " + parseInt(els.DETAILs["e0"], 16));
 		// logger.debug("e7=" + els.DETAILs["e7"] + " " + parseInt(els.DETAILs["e7"], 16));
@@ -89,20 +61,6 @@ var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
 		}
 	}
 });
-
-
-// 問い合わせを送信。ただし、連続で送ると相手の負荷が怖いので1秒ずつ間を開ける
-global.result["datetime"] = new Date().toISOString();
-
-for (var i = 0; i < get_properties.length; i++) {
-	setTimeout(function(prop) {
-		logger.debug("send req " + prop);
-
-		//EL.sendOPC1 = function( ip, seoj, deoj, esv, epc, edt)
-		EL.sendOPC1('10.1.0.100', '05ff01', '028801', EL.GET, prop, "");
-	},(i * 1000), global.get_properties[i]);
-}
-
 
 // 終了判定（適当過ぎるので後で直す）
 global.done_watch = setInterval(function(sock) {
@@ -128,6 +86,7 @@ global.done_watch = setInterval(function(sock) {
 
   global.result = Object.assign(global.result, e2, e0, e7, e8);
 
+	logger.debug("done");
 	global.power_logger.info(JSON.stringify(global.result));
 	logger.debug("Exiting.");
   sock.close();
@@ -184,4 +143,16 @@ function parse_e8(value) {
 
 function hex_to_decimal(value) {
   return parseInt(value, 16);
+}
+
+// 問い合わせを送信。ただし、連続で送ると相手の負荷が怖いので間を開ける
+global.result["datetime"] = new Date().toISOString();
+
+for (var i = 0; i < get_properties.length; i++) {
+	setTimeout(function(prop) {
+		logger.debug("send req " + prop);
+
+		//EL.sendOPC1 = function( ip, seoj, deoj, esv, epc, edt)
+		EL.sendOPC1(TARGET_IP, EPC.DEV_CONTROLLER, EPC.DEV_METER, EL.GET, prop, "");
+	},(i * 500 + 500), global.get_properties[i]);
 }
