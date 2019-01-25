@@ -22,6 +22,8 @@ const logger = global.logger;
 
 global.power_logger = log4js.getLogger('power');
 
+logger.info("Start ...");
+
 global.result = {};
 
 // 自分自身のオブジェクトを決める
@@ -88,9 +90,9 @@ global.done_watch = setInterval(function(sock) {
 
 	logger.debug("done");
 	global.power_logger.info(JSON.stringify(global.result));
-	logger.debug("Exiting.");
   sock.close();
   clearInterval(global.done_watch);
+	logger.info("Exiting.");
 } , 1000, elsocket);
 
 /**
