@@ -3,4 +3,4 @@ Description = B route data fetch service
 
 [Service]
 Type = oneshot
-ExecStart = /opt/scripts/b-route-reader/etc/broute.sh
+ExecStart = /opt/scripts/b-route-reader/scripts/broute.sh

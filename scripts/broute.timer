@@ -4,7 +4,7 @@ Wants = multi-user.target
 After = multi-user.target
 
 [Timer]
-OnCalendar = *-*-* *:*:2/10
+OnCalendar = *-*-* *:*:2/15
 Persistent=true
 Unit = broute.service
 
