@@ -15,15 +15,14 @@ fs.readFile('./config/log4js.json', 'utf8', function (err, text) {
   var config = JSON.parse(text);
   // console.dir(config);
   log4js.configure(config);
+  logger.info("Start ...");
+
+  global.logger = log4js.getLogger('default');
+
+  global.power_logger = log4js.getLogger('power');
 });
 
-global.logger = log4js.getLogger('default');
 const logger = global.logger;
-
-global.power_logger = log4js.getLogger('power');
-
-logger.info("Start ...");
-
 global.result = {};
 
 // 自分自身のオブジェクトを決める
