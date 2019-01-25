@@ -6,8 +6,8 @@ let EPC = {
 	NOW_DENRYOKU: "e7",
 	NOW_DENRYUU: "e8",
 	DELTA_HISTORY: "e2",
-  DEV_METER="028801",
-  DEV_CONTROLLER="05ff01"
+  DEV_METER: "028801",
+  DEV_CONTROLLER: "05ff01"
 }
 
 module.exports = EPC;
