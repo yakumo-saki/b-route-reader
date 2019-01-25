@@ -10,19 +10,9 @@ const log4js = require('log4js');
 
 const SELF_DEV=EPC.DEV_CONTROLLER  // 自分（プログラム）自身のデバイス
 
-var fs = require('fs');
-fs.readFile('./config/log4js.json', 'utf8', function (err, text) {
-  var config = JSON.parse(text);
-  // console.dir(config);
-  log4js.configure(config);
-  logger.info("Start ...");
+initLogger();
 
-  global.logger = log4js.getLogger('default');
-
-  global.power_logger = log4js.getLogger('power');
-});
-
-const logger = global.logger;
+const logger = log4js.getLogger('default');
 global.result = {};
 
 // 自分自身のオブジェクトを決める
@@ -115,6 +105,24 @@ function parse_e2(e2_value) {
       global.result[key] = 0;
     }
   }
+}
+
+/**
+ * loggerの初期化.
+ * BUG: 初期化が終わる前に処理は先に行ってしまうので、ログ出力に失敗する可能性がある
+ */
+function initLogger() {
+  var fs = require('fs');
+  fs.readFile('./config/log4js.json', 'utf8', function (err, text) {
+    var config = JSON.parse(text);
+    // console.dir(config);
+    log4js.configure(config);
+
+    global.logger = log4js.getLogger('default');
+    global.power_logger = log4js.getLogger('power');
+
+    global.logger.info("Start ...");
+  });
 }
 
 /**
