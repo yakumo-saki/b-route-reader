@@ -54,6 +54,7 @@ var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
 });
 
 // 終了判定（適当過ぎるので後で直す）
+logger.debug("done watcher start.");
 global.done_watch = setInterval(function(sock) {
 
   var done = true;
@@ -61,11 +62,13 @@ global.done_watch = setInterval(function(sock) {
   // 全ての値が揃ったかチェック
   get_properties.forEach(prop => {
     if (global.result[prop] == undefined) {
+      global.logger.debug("not done:" + prop);
       done = false;
     }
   });
 
   if (!done) {
+    global.logger.debug("not done, continue");
     return;
   }
 
