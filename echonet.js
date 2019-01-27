@@ -85,7 +85,7 @@ global.done_watch = setInterval(function(sock) {
   sock.close();
   clearInterval(global.done_watch);
 	logger.info("Exiting.");
-} , 1000, elsocket);
+} , 2000, elsocket);
 
 /**
  * 積算電力量 kWh
