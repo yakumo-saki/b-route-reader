@@ -1,6 +1,10 @@
 'use strict'
 
-const TARGET_IP='10.1.0.100'
+const TARGET_IP='10.1.0.100';
+
+const CHECK_INTERVAL=2000          // 完了チェック間隔(ms)
+const MAX_CHECK_COUNT=30           // タイムアウトまでのチェック回数
+const DELAY_TO_FIRST_REQ=1000      // 最初のリクエストを投げるまでのウェイト
 
 // モジュールの機能をELとして使う
 // import functions as EL object
@@ -55,6 +59,7 @@ var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
 
 // 終了判定（適当過ぎるので後で直す）
 logger.debug("done watcher start.");
+global.check_count = 0;
 global.done_watch = setInterval(function(sock) {
 
   var done = true;
@@ -67,25 +72,37 @@ global.done_watch = setInterval(function(sock) {
     }
   });
 
-  if (!done) {
-    global.logger.debug("not done, continue");
-    return;
+  if (global.check_count <= MAX_CHECK_COUNT) {
+
+    global.check_count++;
+
+    if (!done) {
+      global.logger.debug("not done, continue checking " + global.check_count + "/" + MAX_CHECK_COUNT);
+      return;
+    }
+
+    // 値の解釈
+    var e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU]);
+    var e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
+    var e7 = parse_e7(global.result[EPC.NOW_DENRYOKU]);
+    var e8 = parse_e8(global.result[EPC.NOW_DENRYUU]);
+
+    global.result = Object.assign(global.result, e2, e0, e7, e8);
+
+    logger.debug("done");
+    global.power_logger.info(JSON.stringify(global.result));
+    sock.close();
+    clearInterval(global.done_watch);
+    logger.info("Exiting.");
+
+  } else {
+    logger.debug("timeout. abort");
+    sock.close();
+    clearInterval(global.done_watch);
+    logger.info("Exiting. (ABORT)");
   }
 
-	// 値の解釈
-  var e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU]);
-  var e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
-  var e7 = parse_e7(global.result[EPC.NOW_DENRYOKU]);
-  var e8 = parse_e8(global.result[EPC.NOW_DENRYUU]);
-
-  global.result = Object.assign(global.result, e2, e0, e7, e8);
-
-	logger.debug("done");
-	global.power_logger.info(JSON.stringify(global.result));
-  sock.close();
-  clearInterval(global.done_watch);
-	logger.info("Exiting.");
-} , 2000, elsocket);
+} , CHECK_INTERVAL, elsocket);
 
 /**
  * 積算電力量 kWh
@@ -166,5 +183,5 @@ for (var i = 0; i < get_properties.length; i++) {
 
 		//EL.sendOPC1 = function( ip, seoj, deoj, esv, epc, edt)
 		EL.sendOPC1(TARGET_IP, EPC.DEV_CONTROLLER, EPC.DEV_METER, EL.GET, prop, "");
-	},(i * 500 + 500), global.get_properties[i]);
+	},(i * 500 + DELAY_TO_FIRST_REQ), global.get_properties[i]);
 }
