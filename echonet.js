@@ -26,7 +26,7 @@ global.result = {};
 var objList = [EPC.DEV_CONTROLLER];
 
 global.waifForAnswer = false;
-global.get_properties = [EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU, EPC.DELTA_HISTORY];
+global.get_properties = [EPC.DELTA_UNIT, EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU];
 
 ////////////////////////////////////////////////////////////////////////////
 // 初期化するとともに，受信動作をコールバックで登録する
@@ -82,7 +82,7 @@ global.done_watch = setInterval(function(sock) {
     }
 
     // 値の解釈
-    var e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU]);
+    var e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU], global.result[EPC.DELTA_UNIT]);
     var e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
     var e7 = parse_e7(global.result[EPC.NOW_DENRYOKU]);
     var e8 = parse_e8(global.result[EPC.NOW_DENRYUU]);
@@ -105,10 +105,51 @@ global.done_watch = setInterval(function(sock) {
 } , CHECK_INTERVAL, elsocket);
 
 /**
+ * 積算電力量(E2) の乗数を考慮しながら解釈
+ * @param {*} delta_value
+ * @param {*} e1_value
+ * @return kWh
+ * 0x00：1kWh
+ * 0x01：0.1kWh
+ * 0x02：0.01kWh
+ * 0x03：0.001kWh
+ * 0x04：0.0001kWh
+ * 0x0A：10kWh
+ * 0x0B：100kWh
+ * 0x0C：1000kWh
+ * 0x0D：10000kWh
+ */
+function parse_delta_kwh(delta_value, e1_value) {
+  // 小数同士で乗算や除算をすると誤差が出る可能性があるので片方を整数にする
+  if (e1_value == "00") {
+    return delta_value;
+  } else if (e1_value == "01") {
+    return delta_value / 10;
+  } else if (e1_value == "02") {
+    return delta_value / 100;
+  } else if (e1_value == "03") {
+    return delta_value / 1000;
+  } else if (e1_value == "04") {
+    return delta_value / 10000;
+  } else if (e1_value == "0A") {
+    return delta_value * 10;
+  } else if (e1_value == "0B") {
+    return delta_value * 100;
+  } else if (e1_value == "0C") {
+    return delta_value * 1000;
+  } else if (e1_value == "0D") {
+    return delta_value * 10000;
+  }
+
+  throw "unknown unit " + e1_value;
+}
+
+/**
  * 積算電力量 kWh
  * @param {*} e2_value
  */
 function parse_e2(e2_value) {
+  if (e2_value == undefined) { return null}
 
 	const e2_keys = ["0000","0030","0100","0130","0200","0230","0300","0330","0400","0430"
                   , "0500","0530","0600","0630","0700","0730","0800","0830","0900","0930"
@@ -148,14 +189,18 @@ function initLogger() {
 /**
  * e0 積算電力量計測値（正方向）
  */
-function parse_e0(value) {
-  return {delta_kwh: hex_to_decimal(value)}
+function parse_e0(value, e1_value) {
+  if (value == undefined || e1_value == undefined) { return null}
+
+  return {delta_kwh: parse_delta_kwh(hex_to_decimal(value), e1_value) }
 }
 
 /**
  * e7 瞬時電力量計測値（正方向）
  */
 function parse_e7(value) {
+  if (value == undefined) { return null}
+
   return {now_w: hex_to_decimal(value)}
 }
 
@@ -163,6 +208,8 @@ function parse_e7(value) {
  * e8 瞬時電流計測値（正方向）
  */
 function parse_e8(value) {
+  if (value == undefined) { return null}
+
   var r = hex_to_decimal(value.substr(0, 4));
   var t = hex_to_decimal(value.substr(4, 4));
   var div = 10;  // 0.1 A単位
