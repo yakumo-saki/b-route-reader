@@ -3,7 +3,7 @@
     "app": {
       "type": "file",
       "filename": "log/app.log",
-      "maxLogSize": 10485760,
+      "maxLogSize": 1048576,
       "numBackups": 3,
       "layout": {
         "type": "pattern",
@@ -13,6 +13,8 @@
     "power": {
       "type": "file",
       "filename": "log/powerdata.log",
+      "maxLogSize": 1048576,
+      "numBackups": 1,
       "layout": {
         "type": "pattern",
         "pattern": "%m"

@@ -1,6 +1,6 @@
 'use strict'
 
-const TARGET_IP='10.1.0.100';
+const TARGET_IP='10.1.0.105';
 
 const CHECK_INTERVAL=2000          // 完了チェック間隔(ms)
 const MAX_CHECK_COUNT=30           // タイムアウトまでのチェック回数
@@ -8,32 +8,21 @@ const DELAY_TO_FIRST_REQ=1000      // 最初のリクエストを投げるまで
 
 // モジュールの機能をELとして使う
 // import functions as EL object
-var EL = require('echonet-lite');
-var EPC = require('./const-epc');
+let EL = require('echonet-lite');
+let EPC = require('./const-epc');
 const log4js = require('log4js');
 
 const SELF_DEV=EPC.DEV_CONTROLLER  // 自分（プログラム）自身のデバイス
 
-initLogger();
+/**
+ * Echonet データを受信した際のコールバック
+ * @param {*} rinfo 
+ * @param {*} els 
+ * @param {*} err 
+ */
+function echonetReceivedHandler( rinfo, els, err ) {
 
-const logger = log4js.getLogger('default');
-global.result = {};
-
-// 自分自身のオブジェクトを決める
-// set EOJ for this script
-// initializeで設定される，必ず何か設定しないといけない，今回はコントローラ
-// this EOJ list is required. '05ff01' is a controller.
-var objList = [EPC.DEV_CONTROLLER];
-
-global.waifForAnswer = false;
-global.get_properties = [EPC.DELTA_UNIT, EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU];
-
-////////////////////////////////////////////////////////////////////////////
-// 初期化するとともに，受信動作をコールバックで登録する
-// initialize and setting callback. the callback is called by reseived packet.
-var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
-
-	var logger = global.logger;
+	let logger = global.logger;
 
 	// GET(0x62) の応答 (0x72)
 	if (els.DEOJ === SELF_DEV && els.ESV === EL.GET_RES) {
@@ -42,50 +31,49 @@ var elsocket = EL.initialize( objList, function( rinfo, els, err ) {
 		logger.debug("rinfo=" + JSON.stringify(rinfo) );
 		logger.debug(els);
 		logger.debug("===========");
-		// logger.debug(els.DETAILs);
-		// logger.debug("e0=" + els.DETAILs["e0"] + " " + parseInt(els.DETAILs["e0"], 16));
-		// logger.debug("e7=" + els.DETAILs["e7"] + " " + parseInt(els.DETAILs["e7"], 16));
-		// logger.debug("e8=" + els.DETAILs["e8"] + " " + parseInt(els.DETAILs["e8"], 16));
 
-		for (var i = 0; i < global.get_properties.length; i++) {
-			var prop = global.get_properties[i].toLowerCase();
+		for (let i = 0; i < global.requestProperties.length; i++) {
+			let prop = global.requestProperties[i].toLowerCase();
 			// logger.debug(prop + " " + els.DETAILs[prop]);
 			if (els.DETAILs[prop] != undefined) {
 				global.result[prop] = els.DETAILs[prop];
 			}
 		}
 	}
-});
+}
 
-// 終了判定（適当過ぎるので後で直す）
-logger.debug("done watcher start.");
-global.check_count = 0;
-global.done_watch = setInterval(function(sock) {
+/**
+ * すべてのデータが受信されたかチェック
+ * @param {*} sock 
+ * @returns 
+ */
+function doneWatcher(sock) {
 
-  var done = true;
+  let done = true;
 
   // 全ての値が揃ったかチェック
-  get_properties.forEach(prop => {
+  global.requestProperties.forEach(prop => {
     if (global.result[prop] == undefined) {
-      global.logger.debug("not done:" + prop);
+      // global.logger.debug("not done:" + prop);
       done = false;
     }
   });
 
-  if (global.check_count <= MAX_CHECK_COUNT) {
-
-    global.check_count++;
+  if (global.check_count < MAX_CHECK_COUNT) {
 
     if (!done) {
-      global.logger.debug("not done, continue checking " + global.check_count + "/" + MAX_CHECK_COUNT);
+      global.check_count++;
+      if (global.check_count >= 5 && (global.check_count % 3 == 0) ) {
+        global.logger.debug("not done, continue checking " + global.check_count + "/" + MAX_CHECK_COUNT);
+      }
       return;
     }
 
     // 値の解釈
-    var e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU], global.result[EPC.DELTA_UNIT]);
-    var e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
-    var e7 = parse_e7(global.result[EPC.NOW_DENRYOKU]);
-    var e8 = parse_e8(global.result[EPC.NOW_DENRYUU]);
+    let e0 = parse_e0(global.result[EPC.DELTA_DENRYOKU], global.result[EPC.DELTA_UNIT]);
+    let e2 = parse_e2(global.result[EPC.DELTA_HISTORY]);
+    let e7 = parse_e7(global.result[EPC.NOW_DENRYOKU]);
+    let e8 = parse_e8(global.result[EPC.NOW_DENRYUU]);
 
     global.result = Object.assign(global.result, e2, e0, e7, e8);
 
@@ -94,15 +82,16 @@ global.done_watch = setInterval(function(sock) {
     sock.close();
     clearInterval(global.done_watch);
     logger.info("Exiting.");
-
+    process.on('exit', function(){process.exit(0);});
   } else {
     logger.debug("timeout. abort");
     sock.close();
     clearInterval(global.done_watch);
     logger.info("Exiting. (ABORT)");
+    process.on('exit', function(){process.exit(4);});
   }
 
-} , CHECK_INTERVAL, elsocket);
+}
 
 /**
  * 積算電力量(E2) の乗数を考慮しながら解釈
@@ -157,10 +146,10 @@ function parse_e2(e2_value) {
                   , "1500","1530","1600","1630","1700","1730","1800","1830","1900","1930"
                   , "2000","2030","2100","2130","2200","2230","2300","2330"]
 
-  for (var i = 0; i < 48; i++) {
-    var key = "history_kwh_" + e2_keys[i];
+  for (let i = 0; i < 48; i++) {
+    let key = "history_kwh_" + e2_keys[i];
     if (e2_value != undefined) {
-      var hex = e2_value.substr(4 + (i * 8), 8);
+      let hex = e2_value.substr(4 + (i * 8), 8);
       global.result[key] = hex_to_decimal(hex);
     } else {
       global.result[key] = 0;
@@ -173,9 +162,9 @@ function parse_e2(e2_value) {
  * BUG: 初期化が終わる前に処理は先に行ってしまうので、ログ出力に失敗する可能性がある
  */
 function initLogger() {
-  var fs = require('fs');
+  let fs = require('fs');
   fs.readFile('./config/log4js.json', 'utf8', function (err, text) {
-    var config = JSON.parse(text);
+    let config = JSON.parse(text);
     // console.dir(config);
     log4js.configure(config);
 
@@ -210,9 +199,9 @@ function parse_e7(value) {
 function parse_e8(value) {
   if (value == undefined) { return null}
 
-  var r = hex_to_decimal(value.substr(0, 4));
-  var t = hex_to_decimal(value.substr(4, 4));
-  var div = 10;  // 0.1 A単位
+  let r = hex_to_decimal(value.substr(0, 4));
+  let t = hex_to_decimal(value.substr(4, 4));
+  let div = 10;  // 0.1 A単位
 
   return {now_R_amp: (r / div), now_T_amp: (t / div), now_total_amp: ((r + t) / div) }
 }
@@ -221,14 +210,43 @@ function hex_to_decimal(value) {
   return parseInt(value, 16);
 }
 
-// 問い合わせを送信。ただし、連続で送ると相手の負荷が怖いので間を開ける
-global.result["datetime"] = new Date().toISOString();
 
-for (var i = 0; i < get_properties.length; i++) {
-	setTimeout(function(prop) {
-		logger.debug("send req " + prop);
+/**
+ * エントリポイント
+ */
+function main() {
 
-		//EL.sendOPC1 = function( ip, seoj, deoj, esv, epc, edt)
-		EL.sendOPC1(TARGET_IP, EPC.DEV_CONTROLLER, EPC.DEV_METER, EL.GET, prop, "");
-	},(i * 500 + DELAY_TO_FIRST_REQ), global.get_properties[i]);
+  initLogger();
+
+  const logger = log4js.getLogger('default');
+  global.result = {};
+
+  // 自分自身のオブジェクトを決める
+  // set EOJ for this script
+  // initializeで設定される，必ず何か設定しないといけない，今回はコントローラ
+  // this EOJ list is required. '05ff01' is a controller.
+  let objList = [EPC.DEV_CONTROLLER];
+  let elsocket = EL.initialize( objList, echonetReceivedHandler, 4, {v4: '10.1.0.10'});
+
+  global.waifForAnswer = false;
+  global.requestProperties = [EPC.DELTA_UNIT, EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU];
+
+  // 終了判定（適当過ぎるので後で直す）
+  logger.debug("done watcher start.");
+  global.check_count = 0;
+  global.done_watch = setInterval(doneWatcher, CHECK_INTERVAL, elsocket);
+
+  // 問い合わせを送信。ただし、連続で送ると相手の負荷が怖いので間を開ける
+  global.result["datetime"] = new Date().toISOString();
+
+  for (let i = 0; i < global.requestProperties.length; i++) {
+    setTimeout(function(prop) {
+      logger.debug("send req " + prop);
+
+      //EL.sendOPC1 = function( ip, seoj, deoj, esv, epc, edt)
+      EL.sendOPC1(TARGET_IP, EPC.DEV_CONTROLLER, EPC.DEV_METER, EL.GET, prop, "");
+    },(i * 500 + DELAY_TO_FIRST_REQ), global.requestProperties[i]);
+  }
 }
+
+main();

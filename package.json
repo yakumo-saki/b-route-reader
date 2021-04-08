@@ -1,15 +1,19 @@
 {
-  "name": "echonet-test",
+  "name": "b-route-reader",
   "version": "1.0.0",
   "description": "",
   "main": "echonet.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yakumo-saki/b-route-reader.git"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "echonet-lite": "0.0.22",
+    "echonet-lite": "^2.5.7",
     "log4js": "^3.0.6"
   }
 }
