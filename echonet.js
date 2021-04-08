@@ -73,7 +73,6 @@ function exitWaiter() {
       }
 
       await wait(1000);
-      if (endWait) process.report();
     }
   });
 }
