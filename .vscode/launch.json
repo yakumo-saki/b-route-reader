@@ -1,0 +1,13 @@
+{
+    "configurations": [
+      {
+        "type": "node",
+        "request": "launch",
+        "name": "Launch Program",
+        "program": "${workspaceFolder}/echonet.js",
+        "skipFiles": [
+          "<node_internals>/**"
+        ]
+      }
+    ]
+}

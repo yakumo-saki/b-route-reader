@@ -26,7 +26,8 @@
     }
   },
   "categories": {
-    "default": { "appenders": [ "app", "stdout" ], "level": "DEBUG" },
-    "power": { "appenders": [ "power" , "stdout"], "level": "DEBUG" }
-  }
+    "default": { "appenders": [ "app", "stdout" ], "level": "INFO" },
+    "power": { "appenders": [ "power" , "stdout"], "level": "DEBUG" },
+    "debug": { "appenders": [ "stdout"], "level": "ERROR" }
+      }
 }
