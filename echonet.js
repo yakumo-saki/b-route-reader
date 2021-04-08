@@ -70,10 +70,12 @@ function exitWaiter() {
         global.debug("exitWaiter exit.");
         resolve();
         endWait = true;
+        EL = undefined;
       }
 
       await wait(1000);
     }
+    process.exit();
   });
 }
 
@@ -232,7 +234,7 @@ async function sendQuery(ip) {
   let nic;
   if (EL.nicList.v4.length > 0) {
     nic = EL.nicList.v4[0];
-    global.logger.info(`Using network: ${nic.name} ${nic.address}`);
+    // global.logger.info(`Using network: ${nic.name} ${nic.address}`);
   } else {
     global.logger.error("Network interface not found");
     process.exit(16);
@@ -241,6 +243,7 @@ async function sendQuery(ip) {
   // echonet-lite 初期化
   let objList = [EPC.DEV_CONTROLLER];
   EL.initialize( objList, echonetReceivedHandler, 4, {v4: nic.address, autoGetProperties: true});
+  global.logger.info(`Using network ${EL.usingIF.v4}`);
 
   try {
     let ip = await waitForMeterFound();
