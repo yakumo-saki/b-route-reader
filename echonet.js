@@ -223,14 +223,24 @@ async function sendQuery(ip) {
 
   global.requestProperties = [EPC.DELTA_UNIT, EPC.DELTA_DENRYOKU, EPC.NOW_DENRYOKU, EPC.NOW_DENRYUU];
   global.condition = {exitcode: 0, exitFlag: false};
-  global.ELsocket = undefined;
   global.logger = log4js.getLogger('default');
   global.result = {};
   global.result["datetime"] = new Date().toISOString();
 
+  // Echonet 通信に使うNICを特定
+  EL.renewNICList();
+  let nic;
+  if (EL.nicList.v4.length > 0) {
+    nic = EL.nicList.v4[0];
+    global.logger.info(`Using network: ${nic.name} ${nic.address}`);
+  } else {
+    global.logger.error("Network interface not found");
+    process.exit(16);
+  }
+
   // echonet-lite 初期化
   let objList = [EPC.DEV_CONTROLLER];
-  global.ELsocket = EL.initialize( objList, echonetReceivedHandler, 4, {autoGetProperties: true});
+  EL.initialize( objList, echonetReceivedHandler, 4, {v4: nic.address, autoGetProperties: true});
 
   try {
     let ip = await waitForMeterFound();
